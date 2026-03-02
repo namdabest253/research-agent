@@ -153,7 +153,7 @@ your-project/
 **Written by:** You, after each experiment or debate.
 **Read by:** Every agent, first, in every session.
 
-The single source of truth for what is happening RIGHT NOW. Agents read this before anything else so they understand project state without parsing prose from multiple files.
+The single source of truth for what is happening right now. Agents read this before anything else so they understand project state without parsing prose from multiple files.
 
 ```markdown
 # Project Status

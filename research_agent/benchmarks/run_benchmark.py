@@ -139,7 +139,10 @@ def run_claude(prompt, output_file, use_agent=None, timeout_sec=600):
     cmd = ["claude", "--print", "--output-format", "text"]
     if use_agent:
         cmd.extend(["--agent", use_agent])
-    cmd.extend(["--prompt", prompt])
+    cmd.append(prompt)
+
+    # Strip CLAUDECODE so nested `claude` invocations aren't blocked
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
 
     try:
         result = subprocess.run(
@@ -148,6 +151,7 @@ def run_claude(prompt, output_file, use_agent=None, timeout_sec=600):
             text=True,
             timeout=timeout_sec,
             cwd=str(PROJECT_ROOT),
+            env=env,
         )
         output = result.stdout or result.stderr or "(no output)"
     except subprocess.TimeoutExpired:
