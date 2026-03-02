@@ -13,9 +13,8 @@ import arxiv
 import fitz  # pymupdf
 import httpx
 
-RESEARCH_NOTES_PATH = Path(__file__).parent / "research_notes.md"
 CACHE_DIR = Path(__file__).parent / ".cache"
-KB_PATH = Path(__file__).parent / "knowledge_base.json"
+DOCS_DIR = Path(__file__).parent / "docs"
 MAX_PAPER_CHARS = 20_000
 
 SS_API_BASE = "https://api.semanticscholar.org/graph/v1"
@@ -380,47 +379,115 @@ def cmd_citations(args: argparse.Namespace) -> None:
 # Structured knowledge base
 # ---------------------------------------------------------------------------
 
-def _load_kb() -> dict:
-    if KB_PATH.exists():
-        return json.loads(KB_PATH.read_text(encoding="utf-8"))
-    return {"papers": {}, "meta": {"created": datetime.now(timezone.utc).isoformat()}}
+def _scan_papers() -> list[dict]:
+    """Scan docs/*_papers.md and docs/*_survey.md for paper entries."""
+    papers = []
+    seen_names: set[str] = set()
+    seen_arxiv: set[str] = set()
 
+    if not DOCS_DIR.exists():
+        return papers
 
-def _save_kb(kb: dict) -> None:
-    kb["meta"]["updated"] = datetime.now(timezone.utc).isoformat()
-    KB_PATH.write_text(json.dumps(kb, indent=2, ensure_ascii=False), encoding="utf-8")
+    # Determine topic from filename, e.g. "structural_coherence" from "structural_coherence_papers.md"
+    files = list(DOCS_DIR.glob("*_papers.md")) + list(DOCS_DIR.glob("*_survey.md"))
+
+    for fpath in sorted(files):
+        stem = fpath.stem  # e.g. "structural_coherence_papers"
+        topic = re.sub(r"_(papers|survey)$", "", stem)  # e.g. "structural_coherence"
+        content = fpath.read_text(encoding="utf-8")
+
+        # Split on "## Paper N:" headings
+        sections = re.split(r"(?=^## Paper \d+:)", content, flags=re.MULTILINE)
+
+        for section in sections:
+            heading_m = re.match(r"^## Paper \d+:\s*(.+)", section)
+            if not heading_m:
+                continue
+
+            name = heading_m.group(1).strip()
+            if name in seen_names:
+                continue
+            seen_names.add(name)
+
+            entry: dict = {"name": name, "topic": topic}
+
+            # arXiv ID — from URL or explicit line
+            arxiv_m = re.search(r"arxiv\.org/abs/(\d{4}\.\d{4,5})", section)
+            if not arxiv_m:
+                arxiv_m = re.search(r"arXiv:\s*(\d{4}\.\d{4,5})", section)
+            entry["arxiv_id"] = arxiv_m.group(1) if arxiv_m else None
+
+            # Year
+            year_m = re.search(r"^- Year:\s*(\d{4})", section, re.MULTILINE)
+            entry["year"] = int(year_m.group(1)) if year_m else None
+
+            # Venue
+            venue_m = re.search(r"^- Venue:\s*(.+)", section, re.MULTILINE)
+            entry["venue"] = venue_m.group(1).strip() if venue_m else None
+
+            # TL;DR — text after **TL;DR** heading until next **heading or ---
+            tldr_m = re.search(
+                r"\*\*TL;DR\*\*\s*\n(.+?)(?=\n\*\*[A-Z]|\n---|\Z)",
+                section,
+                re.DOTALL,
+            )
+            entry["tldr"] = tldr_m.group(1).strip() if tldr_m else None
+
+            if entry["arxiv_id"]:
+                seen_arxiv.add(entry["arxiv_id"])
+            papers.append(entry)
+
+    # Secondary source: research_index.md Paper Summaries section
+    index_path = DOCS_DIR / "research_index.md"
+    if index_path.exists():
+        index_content = index_path.read_text(encoding="utf-8")
+        # Find the Paper Summaries section
+        summaries_m = re.search(r"^## Paper Summaries\s*$", index_content, re.MULTILINE)
+        if summaries_m:
+            summaries_text = index_content[summaries_m.end():]
+            # Split on #### headings
+            idx_sections = re.split(r"(?=^#### )", summaries_text, flags=re.MULTILINE)
+            for sec in idx_sections:
+                h_m = re.match(r"^#### (.+)", sec)
+                if not h_m:
+                    continue
+                name = h_m.group(1).strip()
+                if name in seen_names:
+                    continue
+                seen_names.add(name)
+
+                arxiv_m = re.search(r"\*\*arXiv\*\*:\s*(\d{4}\.\d{4,5})", sec)
+                arxiv_id = arxiv_m.group(1) if arxiv_m else None
+                if arxiv_id and arxiv_id in seen_arxiv:
+                    continue
+
+                entry: dict = {"name": name, "topic": "index"}
+                entry["arxiv_id"] = arxiv_id
+
+                venue_m = re.search(r"\*\*Venue\*\*:\s*(.+)", sec)
+                entry["venue"] = venue_m.group(1).strip() if venue_m else None
+
+                year_m = re.search(r"\b(20\d{2})\b", entry.get("venue") or "")
+                entry["year"] = int(year_m.group(1)) if year_m else None
+
+                method_m = re.search(r"\*\*Method\*\*:\s*(.+)", sec)
+                entry["tldr"] = method_m.group(1).strip() if method_m else None
+
+                papers.append(entry)
+
+    return papers
 
 
 def cmd_kb(args: argparse.Namespace) -> None:
-    """Manage the structured knowledge base."""
+    """Index and query papers from existing research docs."""
     action = args.kb_action
-    kb = _load_kb()
 
-    if action == "add":
-        paper_id = args.paper_id
-        entry = {
-            "title": args.title or "",
-            "authors": args.authors or "",
-            "year": args.year or "",
-            "tags": [t.strip() for t in (args.tags or "").split(",") if t.strip()],
-            "key_findings": args.key_findings or "",
-            "relevance_score": float(args.relevance_score) if args.relevance_score else 0.0,
-            "connections": [c.strip() for c in (args.connections or "").split(",") if c.strip()],
-            "notes": args.notes or "",
-            "added": datetime.now(timezone.utc).isoformat(),
-        }
-
-        kb["papers"][paper_id] = entry
-
-        # Add bidirectional connections
-        for conn_id in entry["connections"]:
-            if conn_id in kb["papers"]:
-                conn_paper = kb["papers"][conn_id]
-                if paper_id not in conn_paper.get("connections", []):
-                    conn_paper.setdefault("connections", []).append(paper_id)
-
-        _save_kb(kb)
-        print(f"Added paper '{entry['title']}' ({paper_id}) to knowledge base.")
+    if action == "list":
+        papers = _scan_papers()
+        if not papers:
+            print("No papers found in docs.")
+            return
+        print(json.dumps(papers, indent=2))
 
     elif action == "search":
         query = (args.search_query or "").lower()
@@ -428,130 +495,44 @@ def cmd_kb(args: argparse.Namespace) -> None:
             print("Please provide a search query with --query.")
             return
 
+        papers = _scan_papers()
         matches = []
-        for pid, p in kb["papers"].items():
-            searchable = " ".join([
-                p.get("title", ""),
-                p.get("key_findings", ""),
-                " ".join(p.get("tags", [])),
-                p.get("notes", ""),
-            ]).lower()
+        for p in papers:
+            searchable = " ".join(
+                str(v) for v in p.values() if v is not None
+            ).lower()
             if query in searchable:
-                matches.append({"paper_id": pid, **p})
+                matches.append(p)
 
         if matches:
             print(json.dumps(matches, indent=2))
         else:
-            print(f"No papers matching '{query}' in knowledge base.")
+            print(f"No papers matching '{query}'.")
 
-    elif action == "list":
-        if not kb["papers"]:
-            print("Knowledge base is empty.")
+    elif action == "stats":
+        papers = _scan_papers()
+        if not papers:
+            print(json.dumps({"total": 0}))
             return
-        entries = []
-        for pid, p in kb["papers"].items():
-            entries.append({
-                "paper_id": pid,
-                "title": p.get("title", ""),
-                "tags": p.get("tags", []),
-                "relevance_score": p.get("relevance_score", 0),
-                "connections": p.get("connections", []),
-            })
-        entries.sort(key=lambda e: e.get("relevance_score", 0), reverse=True)
-        print(json.dumps(entries, indent=2))
 
-    elif action == "connections":
-        paper_id = args.paper_id
-        if not paper_id:
-            print("Please provide --paper-id.")
-            return
-        if paper_id not in kb["papers"]:
-            print(f"Paper '{paper_id}' not found in knowledge base.")
-            return
-        paper = kb["papers"][paper_id]
-        connected = []
-        for cid in paper.get("connections", []):
-            if cid in kb["papers"]:
-                cp = kb["papers"][cid]
-                connected.append({"paper_id": cid, "title": cp.get("title", ""), "tags": cp.get("tags", [])})
-            else:
-                connected.append({"paper_id": cid, "title": "(not in KB)", "tags": []})
-        print(json.dumps({
-            "paper_id": paper_id,
-            "title": paper.get("title", ""),
-            "connections": connected,
-        }, indent=2))
+        topics: dict[str, int] = {}
+        venues: dict[str, int] = {}
+        years: list[int] = []
 
-    elif action == "export":
-        if not kb["papers"]:
-            print("Knowledge base is empty.")
-            return
-        lines = ["# Research Knowledge Base\n"]
-        lines.append(f"*Exported: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}*\n")
-        lines.append(f"**Total papers**: {len(kb['papers'])}\n")
+        for p in papers:
+            topics[p["topic"]] = topics.get(p["topic"], 0) + 1
+            if p.get("venue"):
+                venues[p["venue"]] = venues.get(p["venue"], 0) + 1
+            if p.get("year"):
+                years.append(p["year"])
 
-        tag_groups: dict[str, list] = {}
-        for pid, p in kb["papers"].items():
-            for tag in (p.get("tags") or ["untagged"]):
-                tag_groups.setdefault(tag, []).append((pid, p))
-
-        for tag in sorted(tag_groups.keys()):
-            lines.append(f"\n## {tag}\n")
-            for pid, p in tag_groups[tag]:
-                lines.append(f"### {p.get('title', pid)}")
-                lines.append(f"- **ID**: {pid}")
-                lines.append(f"- **Authors**: {p.get('authors', 'N/A')}")
-                lines.append(f"- **Year**: {p.get('year', 'N/A')}")
-                lines.append(f"- **Relevance**: {p.get('relevance_score', 'N/A')}/10")
-                if p.get("key_findings"):
-                    lines.append(f"- **Key Findings**: {p['key_findings']}")
-                if p.get("connections"):
-                    lines.append(f"- **Connected to**: {', '.join(p['connections'])}")
-                if p.get("notes"):
-                    lines.append(f"- **Notes**: {p['notes']}")
-                lines.append("")
-
-        print("\n".join(lines))
-
-
-# ---------------------------------------------------------------------------
-# Legacy: note command
-# ---------------------------------------------------------------------------
-
-def cmd_note(args: argparse.Namespace) -> None:
-    """Append a paper entry to research_notes.md."""
-    notes_path = RESEARCH_NOTES_PATH
-
-    if notes_path.exists():
-        existing = notes_path.read_text(encoding="utf-8")
-        if args.arxiv_id in existing:
-            print(f"Paper {args.arxiv_id} already in research notes. Skipping.")
-            return
-    else:
-        existing = ""
-
-    if not existing:
-        existing = "# Research Notes\n\n"
-
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
-    entry = f"""## Paper: {args.title}
-- **arXiv**: https://arxiv.org/abs/{args.arxiv_id}
-- **Date Reviewed**: {today}
-- **Authors**: {args.authors}
-- **Summary**: {args.summary}
-- **Key Findings**:
-{args.key_findings}
-- **Relevance to Project**: [{args.relevance}] - {args.relevance_explanation}
-- **Ideas for Our Project**:
-{args.ideas}
-
----
-
-"""
-
-    notes_path.write_text(existing + entry, encoding="utf-8")
-    print(f"Added '{args.title}' ({args.arxiv_id}) to research notes.")
+        stats = {
+            "total": len(papers),
+            "by_topic": dict(sorted(topics.items(), key=lambda x: x[1], reverse=True)),
+            "by_venue": dict(sorted(venues.items(), key=lambda x: x[1], reverse=True)),
+            "year_range": f"{min(years)}-{max(years)}" if years else None,
+        }
+        print(json.dumps(stats, indent=2))
 
 
 # ---------------------------------------------------------------------------
@@ -598,32 +579,11 @@ def main() -> None:
     p_cache.add_argument("action", choices=["stats", "list", "clear"])
     p_cache.set_defaults(func=cmd_cache)
 
-    # kb (knowledge base)
-    p_kb = subparsers.add_parser("kb", help="Structured knowledge base")
-    p_kb.add_argument("kb_action", choices=["add", "search", "list", "connections", "export"])
-    p_kb.add_argument("--paper-id")
-    p_kb.add_argument("--title")
-    p_kb.add_argument("--authors")
-    p_kb.add_argument("--year")
-    p_kb.add_argument("--tags", help="Comma-separated tags")
-    p_kb.add_argument("--key-findings")
-    p_kb.add_argument("--relevance-score", type=float)
-    p_kb.add_argument("--connections", help="Comma-separated paper IDs this paper connects to")
-    p_kb.add_argument("--notes")
+    # kb (knowledge base — indexes from existing docs)
+    p_kb = subparsers.add_parser("kb", help="Index and query papers from research docs")
+    p_kb.add_argument("kb_action", choices=["list", "search", "stats"])
     p_kb.add_argument("--query", dest="search_query", help="Search query for kb search")
     p_kb.set_defaults(func=cmd_kb)
-
-    # note (legacy)
-    p_note = subparsers.add_parser("note", help="Add paper to research notes (legacy)")
-    p_note.add_argument("--title", required=True)
-    p_note.add_argument("--arxiv-id", required=True)
-    p_note.add_argument("--authors", required=True)
-    p_note.add_argument("--summary", required=True)
-    p_note.add_argument("--key-findings", required=True)
-    p_note.add_argument("--relevance", required=True, choices=["High", "Medium", "Low"])
-    p_note.add_argument("--relevance-explanation", required=True)
-    p_note.add_argument("--ideas", required=True)
-    p_note.set_defaults(func=cmd_note)
 
     args = parser.parse_args()
     args.func(args)

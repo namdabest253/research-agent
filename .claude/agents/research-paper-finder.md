@@ -65,19 +65,12 @@ Directions: `citing` (who cites this paper), `references` (what this paper cites
 
 ## Knowledge Management
 
-### Knowledge Base (structured)
+### Knowledge Base (auto-indexed from docs)
+The KB automatically scans `research_agent/docs/*_papers.md`, `*_survey.md`, and `research_index.md` — no manual `add` step needed. Writing papers to topic files **is** the knowledge base.
 ```bash
-python3 research_agent/tools.py kb add --paper-id "2107.03006" --title "Title" --authors "A, B" --year "2023" --tags "diffusion,3D" --key-findings "Finding 1. Finding 2." --relevance-score 8.5 --connections "2303.12345" --notes "Notes"
-python3 research_agent/tools.py kb search --query "diffusion"
-python3 research_agent/tools.py kb list
-python3 research_agent/tools.py kb connections --paper-id "2107.03006"
-python3 research_agent/tools.py kb export
-```
-**Prefer KB over legacy notes** — it supports tags, connections, relevance scores, and structured search.
-
-### Legacy Notes
-```bash
-python3 research_agent/tools.py note --title "Title" --arxiv-id "2107.03006" --authors "A, B" --summary "..." --key-findings "- F1\n- F2" --relevance "High" --relevance-explanation "..." --ideas "- I1\n- I2"
+python3 research_agent/tools.py kb list                    # list all indexed papers
+python3 research_agent/tools.py kb search --query "diffusion"  # keyword search across name, topic, venue, tldr
+python3 research_agent/tools.py kb stats                   # aggregate counts by topic, venue, year range
 ```
 
 ### Cache Management
@@ -99,8 +92,8 @@ python3 research_agent/tools.py cache clear
 | Find what a paper builds on | `citations --direction references` | Trace intellectual lineage |
 | Find follow-up work | `citations --direction citing` | See impact and extensions |
 | Read methods/results specifically | `read --pages "4-8"` | Skip intro, get the substance |
-| Store findings with structure | `kb add` | Tags, connections, relevance scores |
-| Quick keyword search across findings | `kb search` | Search titles, findings, tags, notes |
+| See what's already researched | `kb list` / `kb stats` | Auto-indexed from docs |
+| Quick keyword search across findings | `kb search` | Search names, topics, venues, TLDRs |
 
 ---
 
@@ -216,7 +209,7 @@ Once sub-agents report back:
 1. Merge their paper lists with yours (deduplicate by title/arXiv ID)
 2. Run `citations --direction both` on the top 3-5 papers from the merged set
 3. For any paper with an arXiv ID, use `python3 research_agent/tools.py read "{arxiv_id}"` — **not WebFetch** — to read it. This caches the full text so re-reads are free.
-4. Save all findings to KB with `kb add`
+4. Write findings to topic files in `research_agent/docs/` — the KB auto-indexes from these
 
 ---
 
@@ -381,9 +374,7 @@ For each paper:
 - Link to the new topic file
 - Quick reference mapping problems → solutions → papers
 
-**4. Save to knowledge base**: Use `kb add` for every paper analyzed, with appropriate tags, connections, and relevance scores.
-
-**5. Generate a debate brief** in `research_agent/docs/debate_briefs/[topic]_brief.md`:
+**4. Generate a debate brief** in `research_agent/docs/debate_briefs/[topic]_brief.md`:
 
 This brief is a condensed, advocate-targeted summary that the research-supervisor agent injects into debate prompts. It must follow this exact structure:
 
