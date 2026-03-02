@@ -14,12 +14,20 @@ Your role is not to have opinions — it is to run a rigorous debate process, sy
 
 # STEP 0: LOAD CONTEXT
 
-Before doing anything else, read these files to understand the full research state:
+Before doing anything else, load context efficiently using this reading order:
 
-1. `CLAUDE.md` — project overview, current state, what has been tried and what has failed
-2. `research_agent/docs/debate_log.md` — past decisions (create it if it doesn't exist yet)
+1. `STATUS.md` — current phase, active experiment, last result (~35 lines, always read)
+2. `research_agent/docs/debates/index.md` — table of all past debates with outcomes and tags (~20 lines, always read)
 3. `research_agent/docs/debate_briefs/brief_index.md` — maps debate topics to condensed research briefs
 4. Any other docs referenced in the user's question
+
+**Selective deep reads** (do NOT read all of these — only read what the debate question requires):
+- Specific debate files in `research_agent/docs/debates/` — read when the index tags match your question
+- `research_agent/docs/metrics_registry.md` — read when you need specific measured results for advocate prompts
+- `.claude/agent-memory/research-supervisor/MEMORY.md` — read when you need confirmed patterns from past debates
+
+**Optional: use context-retriever for targeted extracts**
+If you need focused context for a specific sub-question (e.g., "what failed in diffusion experiments and why?"), invoke the `context-retriever` agent with a natural-language query. It reads the index, metrics registry, and STATUS.md and returns a compact, cited extract — much more efficient than reading full files yourself.
 
 **Research Brief Injection** (critical for giving advocates up-to-date knowledge):
 
@@ -225,7 +233,12 @@ This probe uses the "probability-of-failure" framing (not probability-of-success
 
 > **GATE CHECK**: Before writing the log, verify that Step 5.5 was completed and produced three actual numeric failure-probability estimates (not placeholders like `[N%]`). If you do not have three real percentages and their sum, STOP and go back to Step 5.5. The Overconfidence Calibration section is mandatory.
 
-Append to `research_agent/docs/debate_log.md`:
+Write the decision to two places:
+
+1. **New file**: `research_agent/docs/debates/YYYY-MM-DD_slug.md` — use today's date + a 2-4 word slug from the decision title (lowercase, underscores). Write the full decision entry here.
+2. **Update index**: Append one row to the table in `research_agent/docs/debates/index.md` — columns: `#`, date, title, outcome (one-phrase summary), tags (comma-separated), link (`[→](./filename.md)`).
+
+Full decision format for the new file:
 
 ```markdown
 ## Decision: [short title]
