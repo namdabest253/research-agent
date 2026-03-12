@@ -1,0 +1,41 @@
+{
+  "id": "pdb_003",
+  "source_debate": "2026-02-27_retest_before_pivot",
+  "question": "The scope reduction test returned 0/20 passing samples (pre-committed 'pipeline fundamentally broken' outcome), but real samples from the same cluster also fail 0/20 on the same criteria. Given this ambiguous result and 7 failed continuous latent diffusion versions, what is the correct next step?",
+  "difficulty": "hard",
+
+  "project_state": {
+    "status_snapshot": "Phase 4.8. Scope reduction test completed but is INVALID. Generated samples scored 0/20 on automated criteria, but real training samples from the same cluster ALSO scored 0/20. The criteria (contiguous planar surfaces of 4+ blocks, ground contact ratio > 50%, largest connected component > 70%) were never validated against actual structures. The occupancy-based clustering (density, height, footprint) did not produce visually homogeneous clusters.",
+    "prior_decisions": [
+      {"date": "2026-02-25", "title": "v7 approach", "outcome": "MSE-only + rotation aug + self-cond. VQ-VAE diagnostic passed."},
+      {"date": "2026-02-26", "title": "Discrete pivot correction", "outcome": "Fallback = full-voxel discrete, NOT FSQ tokens"},
+      {"date": "2026-02-26", "title": "Scope reduction test", "outcome": "0/20 passing BUT criteria broken. Test invalid."}
+    ],
+    "metrics": {
+      "vq_vae_recon": "v16b passes all targets",
+      "best_diffusion_loss": "0.258 but visually incoherent",
+      "scope_reduction_result": "0/20 generated passing, 0/20 REAL samples passing — criteria are broken",
+      "quantization_bypass": "95.6% voxel match — mismatch refuted",
+      "cluster_quality": "Occupancy-based clustering does NOT capture visual homogeneity"
+    },
+    "version_history": "v1: mode collapse → v2: adversarial collapse → v3: empty → v4: incoherent → v5: degenerate → v6a: blobs → v7: blobs → scope-reduction test: INVALID (broken criteria)"
+  },
+
+  "ground_truth": {
+    "confounds_discovered_later": [
+      "Tag-based labels in the dataset are noisy — many structures tagged 'house' are not visually houses",
+      "Need to validate evaluation criteria against real positive controls BEFORE using them to judge generated data",
+      "Colab memory feasibility for full-voxel discrete diffusion (32K positions x 3,717 classes) is a practical blocker nobody had tested"
+    ],
+    "good_references": [
+      "Scope reduction test failure was methodological, not a pipeline verdict — cannot conclude pipeline is broken from an invalid test",
+      "Quantization bypass result (95.6%) rules out quantization as the problem"
+    ],
+    "failed_approaches_to_avoid": [
+      "Automated occupancy-based clustering as a proxy for visual homogeneity",
+      "Using evaluation criteria without first validating them against real positive samples"
+    ],
+    "actual_decision": "Manual curation of 50-100 houses by visual inspection + validate evaluation criteria against 20 real curated houses (must pass 15+/20). In parallel: Colab memory feasibility test for discrete diffusion.",
+    "actual_outcome": "Led to tag-based filtering approach (Debate #7), then final clean test (Debate #8) with manually curated houses."
+  }
+}

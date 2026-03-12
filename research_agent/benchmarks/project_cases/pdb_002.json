@@ -1,0 +1,39 @@
+{
+  "id": "pdb_002",
+  "source_debate": "2026-02-26_scope_reduction",
+  "question": "Given that the quantization bypass diagnostic decisively refutes the quantization mismatch hypothesis (95.6% voxel match), and 7 versions of continuous latent diffusion have failed to produce coherent structures, what is the single highest-value next step?",
+  "difficulty": "hard",
+
+  "project_state": {
+    "status_snapshot": "Phase 4.7. v7 (MSE-only + rotation augmentation + self-conditioning) just completed. Generated samples are still amorphous blobs. Quantization bypass diagnostic was run: feeding VQ-VAE encoder outputs directly (bypassing codebook quantization) produced 95.6% voxel match with the quantized path. This decisively refutes the hypothesis that codebook quantization is destroying structural information.",
+    "prior_decisions": [
+      {"date": "2026-02-25", "title": "v7 approach", "outcome": "MSE-only + rotation augmentation + self-conditioning. VQ-VAE diagnostic passed (structure preserved in latent space)."},
+      {"date": "2026-02-26", "title": "Discrete pivot fallback correction", "outcome": "If pivot needed, fallback = full-voxel discrete diffusion (Path C), NOT FSQ tokens (Path B)"}
+    ],
+    "metrics": {
+      "vq_vae_recon": "v16b passes all targets",
+      "best_diffusion_loss": "0.258 (v7) but visually incoherent — all samples are amorphous blobs",
+      "quantization_bypass": "95.6% voxel match between quantized and unquantized paths — mismatch hypothesis REFUTED",
+      "dataset_size": "3,500 training structures with 4x rotation augmentation = 14,000 effective"
+    },
+    "version_history": "v1: mode collapse → v2: adversarial collapse → v3: empty outputs → v4: incoherent → v5: degenerate → v6a: amorphous blobs (weak discriminator) → v7: amorphous blobs (MSE-only, rotation aug, self-cond)"
+  },
+
+  "ground_truth": {
+    "confounds_discovered_later": [
+      "Automated evaluation criteria were broken — never validated against real positive samples (real structures also failed 0/20)",
+      "Occupancy-based clustering (density, height, footprint) did not capture visual/structural homogeneity",
+      "Model potentially too large (3.5M params) for the scope-reduced dataset size"
+    ],
+    "good_references": [
+      "Quantization bypass result (95.6% voxel match) definitively rules out quantization mismatch",
+      "Adversarial training failures (v2, v5, v6a) — 3 failures establish a clear pattern to avoid"
+    ],
+    "failed_approaches_to_avoid": [
+      "Adversarial discriminator / GAN training (3 prior failures)",
+      "Automated clustering-based scope reduction without visual verification of cluster homogeneity"
+    ],
+    "actual_decision": "Scope reduction test: cluster training structures by occupancy features, pick largest homogeneous cluster, retrain v7 on only that cluster. Pre-committed success criteria: 5+/20 recognizable = success, 0/20 = failure.",
+    "actual_outcome": "0/20 passing generated AND 0/20 passing real samples. Test INVALID — criteria were broken (never validated against positives). Lesson: always validate evaluation criteria against real positive controls first."
+  }
+}

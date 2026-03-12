@@ -1,0 +1,33 @@
+{
+  "id": "pdb_001",
+  "source_debate": "2026-02-25_v7_approach",
+  "question": "Given v6a's result (stable training but amorphous blobs from a too-weak discriminator), what architectural and methodological approach should v7 take to achieve coherent 3D structures?",
+  "difficulty": "medium",
+
+  "project_state": {
+    "status_snapshot": "Phase 4.6. VQ-VAE v16b is stable and passes all reconstruction targets. Diffusion prior v6a trained with joint adversarial discriminator — training was stable but generated samples are amorphous blobs. The discriminator was too weak to provide meaningful gradient signal. The 8x8x8 latent space has 512 positions with 256-dim embeddings from the VQ-VAE codebook (4096 codes).",
+    "prior_decisions": [],
+    "metrics": {
+      "vq_vae_recon": "v16b passes all targets: voxel accuracy 97.2%, block-type F1 0.94, structural skeleton preserved",
+      "v6a_training": "Stable training, val loss converged to 0.305, but all generated samples are amorphous blobs",
+      "dataset_size": "3,500 training structures (32x32x32 voxel grids)",
+      "adversarial_history": "v2: adversarial collapse (discriminator won immediately). v5: adversarial degenerate (D accuracy stuck at 50%). v6a: too-weak discriminator (blobs)"
+    },
+    "version_history": "v1: mode collapse (single repeated output) → v2: adversarial collapse (D won, G produced noise) → v3: empty outputs (wrong loss weighting) → v4: incoherent (better but still not recognizable structures) → v5: degenerate (adversarial D stuck at 50% accuracy) → v6a: amorphous blobs (stable training, weak discriminator)"
+  },
+
+  "ground_truth": {
+    "confounds_discovered_later": [
+      "No VQ-VAE structural coherence diagnostic had ever been run — 6 versions built without verifying latent space preserves structural properties (ground contact, connectivity), not just block accuracy"
+    ],
+    "good_references": [
+      "Adversarial training has failed 3 times (v2, v5, v6a) — pattern of repeated failure",
+      "Dataset is only 3,500 samples — data augmentation via 3D rotations can 4x this at zero cost"
+    ],
+    "failed_approaches_to_avoid": [
+      "Joint adversarial training / GAN discriminator (failed 3 times: v2, v5, v6a)"
+    ],
+    "actual_decision": "Phased: (A) Run VQ-VAE structural diagnostic first, (B) MSE-only + rotation augmentation + self-conditioning for v7, (C) Post-hoc discriminator guidance at inference (not joint training)",
+    "actual_outcome": "VQ-VAE diagnostic PASSED (density r=0.98, vertical r=0.99, support r=0.88). v7 trained per plan but still produced blobs, leading to further investigation."
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "id": "pdb_005",
+  "source_debate": "2026-03-03_debate_system_self_improvement",
+  "question": "Given that the benchmark shows the debate adds value at experimental design (sequencing, falsifiability) but not insight recovery, the Contrarian has a structural regression risk, and 4 prompt-level optimizations were just implemented without measurement, what is the highest-ROI next improvement to the debate system?",
+  "difficulty": "medium",
+
+  "project_state": {
+    "status_snapshot": "Meta-improvement phase. The Novelty Recovery Benchmark (NRB) was run on 3 Tier-1 cases. Results: single agent and debate both achieve 3-4/5 insight recovery — debate does NOT outperform on insight. But debate adds value at experimental design level: sequencing, falsifiability, kill criteria. Contrarian is double-edged: catches confounds but also has regression risk (arguing against counterintuitive truths). 4 prompt-level optimizations were just applied: Contrarian Regression Risk check, Empirical Unknowns section, Experiment Sequence as primary output, question-type routing.",
+    "prior_decisions": [
+      {"date": "2026-02-25", "title": "Meta-debate: phased optimization", "outcome": "DMAD blueprints + overconfidence calibration + question-debate pre-round + synthesis traceability"},
+      {"date": "2026-02-26", "title": "NRB benchmark methodology", "outcome": "Phased: evaluator reliability → case expansion → rubric upgrade"},
+      {"date": "2026-03-02", "title": "NRB run results", "outcome": "Debate = single on insight (3-4/5), debate better on experimental design, Contrarian double-edged"}
+    ],
+    "metrics": {
+      "nrb_single_insight": "3-4/5 on Tier-1 cases",
+      "nrb_debate_insight": "3-4/5 on Tier-1 cases (no lift over single agent)",
+      "debate_value_finding": "Value is in experimental design (sequencing, kill criteria, falsifiability), not insight recovery",
+      "contrarian_finding": "Double-edged: catches real confounds but also has regression risk",
+      "optimizations_applied": "4 prompt-level changes applied without pre/post measurement"
+    },
+    "version_history": "Meta-debate #1: phased optimization plan → NRB Phase 1: evaluator reliability (alpha >= 0.6) → NRB Phase 2: 7 new Tier-1/2 cases → NRB run: 3 cases tested → 4 optimizations applied → now: what next?"
+  },
+
+  "ground_truth": {
+    "confounds_discovered_later": [
+      "The meta-improvement loop itself has opportunity cost — 3 sessions on meta-improvement is already significant",
+      "Holistic 1-5 scoring conflates multiple dimensions and prevents targeted improvement — need decomposed rubric",
+      "4 optimizations applied simultaneously means any benchmark improvement cannot be attributed to a specific change"
+    ],
+    "good_references": [
+      "PaperBench F1=0.83 validates hierarchical/decomposed evaluation over holistic scoring",
+      "Scaffold sensitivity from PaperBench (Claude -23% from IterativeAgent) means more prompt structure can hurt",
+      "Project track record: 4/4 consecutive diagnostics were inconclusive — measurement strategy itself may produce inconclusive results"
+    ],
+    "failed_approaches_to_avoid": [
+      "Adding more features/optimizations before measuring the effect of existing ones",
+      "Using holistic scoring (1-5 scales) when decomposed binary/ternary criteria are needed for targeted improvement"
+    ],
+    "actual_decision": "Measurement-first: (1) Design decomposed rubric with binary/ternary criteria, validate on 3 existing cases. (2) Test 1-round vs 2-round on next project decision — if 1-round is 80%+ as good, save 40% API cost. (3) Re-run benchmark with new optimizations using rubric. (4) Only then consider more features.",
+    "actual_outcome": "The 1-round vs 2-round comparison was identified as the cheapest highest-information experiment — emerged only from Contrarian cross-examination in Round 2."
+  }
+}

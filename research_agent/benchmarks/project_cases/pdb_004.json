@@ -1,0 +1,43 @@
+{
+  "id": "pdb_004",
+  "source_debate": "2026-03-01_final_clean_test",
+  "question": "The house-filtered v7 retraining produced amorphous blobs with severe overfitting (train/val gap = 0.14). Is this diagnostic evidence that the continuous latent diffusion pipeline is fundamentally broken, or was the test compromised by confounds?",
+  "difficulty": "hard",
+
+  "project_state": {
+    "status_snapshot": "Phase 4.9. House-filtered v7 retrained on structures tagged 'house' from the CSV dataset (6,174 entries after tag filtering). Results: amorphous blobs again, with severe overfitting (train/val gap = 0.14). This is the 8th attempt at continuous latent diffusion. The project has a systematic pattern of running confounded experiments and then debating the confounds.",
+    "prior_decisions": [
+      {"date": "2026-02-25", "title": "v7 approach", "outcome": "MSE-only + rotation aug + self-cond"},
+      {"date": "2026-02-26", "title": "Scope reduction", "outcome": "0/20, but criteria broken. Test invalid."},
+      {"date": "2026-02-27", "title": "Retest methodology", "outcome": "Manual curation + validated criteria"},
+      {"date": "2026-02-27", "title": "Tag filtering", "outcome": "CSV House tags filter (6,174 entries) as cheaper pre-check before manual curation"}
+    ],
+    "metrics": {
+      "vq_vae_recon": "v16b passes all targets",
+      "house_filtered_result": "Amorphous blobs, train/val gap = 0.14 (severe overfitting)",
+      "model_size": "3.5M parameters — potentially oversized for filtered dataset",
+      "tag_quality": "CSV 'house' tags are noisy — many tagged structures are not visually houses",
+      "attempts": "8 continuous latent diffusion versions, 0 coherent outputs"
+    },
+    "version_history": "v1-v7: all failed (mode collapse, adversarial collapse x3, empty, incoherent, blobs x2) → scope-reduction: invalid test → house-filtered: blobs + overfitting"
+  },
+
+  "ground_truth": {
+    "confounds_discovered_later": [
+      "Noisy tag labels — many structures tagged 'house' in the CSV are not visually houses, so the model was trained on heterogeneous data",
+      "Model too large — 3.5M parameters for a filtered dataset causes overfitting rather than learning structure",
+      "Wrong checkpoint selection — may not have used best-validation-loss checkpoint for generation"
+    ],
+    "good_references": [
+      "Pattern of confounded experiments — scope reduction had broken criteria, house-filtered has noisy labels + oversized model + overfitting",
+      "The project has spent 4 debates designing scope reduction tests and 4 times run them with multiple confounds — this is a process failure"
+    ],
+    "failed_approaches_to_avoid": [
+      "Using tag-based filtering without visual verification of label quality",
+      "Training an oversized model (3.5M params) on a small filtered dataset",
+      "Running experiments with multiple uncontrolled variables simultaneously"
+    ],
+    "actual_decision": "One final clean test: manually curate 30-50 ACTUAL houses by visual inspection, retrain with reduced model ([32,64,128] channels, ~800K params), generate from best-val checkpoint, visual inspection only (no automated criteria). 4-hour time cap. If blobs: pivot to discrete diffusion. If blurry houses: post-hoc guidance. If ambiguous: treat as failure and pivot.",
+    "actual_outcome": "The final clean test was designed to be the first confound-free experiment the project has ever run."
+  }
+}
